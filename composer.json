@@ -1,5 +1,5 @@
 {
-    "name": "khill/php-duration",
+    "name": "meklis/php-duration",
     "description": "Converts between colon formatted time, human-readable time and seconds",
     "keywords": [
         "duration",
