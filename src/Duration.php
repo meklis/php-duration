@@ -7,6 +7,10 @@ class Duration
     /**
      * @var int|float|null
      */
+    public $weeks;
+    /**
+     * @var int|float|null
+     */
     public $days;
 
     /**
@@ -28,11 +32,20 @@ class Duration
      * @var int|null
      */
     public $hoursPerDay;
+    /**
+     * @var int|null
+     */
+    public $daysByWeek;
 
     /**
      * @var string|int
      */
     private $output;
+
+    /**
+     * @var string
+     */
+    private $weeksRegex;
 
     /**
      * @var string
@@ -60,16 +73,18 @@ class Duration
      * @param int|float|string|null $duration
      * @param int $hoursPerDay
      */
-    public function __construct($duration = null, $hoursPerDay = 24)
+    public function __construct($duration = null, $hoursPerDay = 24, $daysByWeek = 7)
     {
         $this->reset();
 
+        $this->weeksRegex = '/([0-9\.]+)\s?(?:w|W)/';
         $this->daysRegex = '/([0-9\.]+)\s?(?:d|D)/';
         $this->hoursRegex = '/([0-9\.]+)\s?(?:h|H)/';
         $this->minutesRegex = '/([0-9]{1,2})\s?(?:m|M)/';
         $this->secondsRegex = '/([0-9]{1,2}(\.\d+)?)\s?(?:s|S)/';
 
         $this->hoursPerDay = $hoursPerDay;
+        $this->daysByWeek = $daysByWeek;
 
         if (null !== $duration) {
             $this->parse($duration);
@@ -135,10 +150,17 @@ class Duration
             return $this;
         }
 
-        if (preg_match($this->daysRegex, $duration) ||
+        if (
+            preg_match($this->weeksRegex, $duration) ||
+            preg_match($this->daysRegex, $duration) ||
             preg_match($this->hoursRegex, $duration) ||
             preg_match($this->minutesRegex, $duration) ||
             preg_match($this->secondsRegex, $duration)) {
+            if (preg_match($this->weeksRegex, $duration, $matches)) {
+                $num = $this->numberBreakdown((float) $matches[1]);
+                $this->weeks += (int)$num[0];
+                $this->days += $num[1] * $this->daysByWeek;
+            }
             if (preg_match($this->daysRegex, $duration, $matches)) {
                 $num = $this->numberBreakdown((float) $matches[1]);
                 $this->days += (int)$num[0];
@@ -179,7 +201,11 @@ class Duration
         if (null !== $duration) {
             $this->parse($duration);
         }
-        $this->output = ($this->days * $this->hoursPerDay * 60 * 60) + ($this->hours * 60 * 60) + ($this->minutes * 60) + $this->seconds;
+        $this->output = ($this->weeks * $this->daysByWeek * $this->hoursPerDay * 60 * 60) +
+            ($this->days * $this->hoursPerDay * 60 * 60) +
+            ($this->hours * 60 * 60) +
+            ($this->minutes * 60) +
+            $this->seconds;
 
         return $precision !== false ? round($this->output, $precision) : $this->output;
     }
@@ -204,7 +230,11 @@ class Duration
             $precision = 0;
         }
 
-        $this->output = ($this->days * $this->hoursPerDay * 60 * 60) + ($this->hours * 60 * 60) + ($this->minutes * 60) + $this->seconds;
+        $this->output = ($this->weeks * $this->daysByWeek * $this->hoursPerDay * 60 * 60) +
+            ($this->days * $this->hoursPerDay * 60 * 60) +
+            ($this->hours * 60 * 60) +
+            ($this->minutes * 60) +
+            $this->seconds;
         $result = intval($this->output()) / 60;
 
         return $precision !== false ? round($result, $precision) : $result;
@@ -228,7 +258,7 @@ class Duration
             $this->parse($duration);
         }
 
-        $hours = $this->hours + ($this->days * $this->hoursPerDay);
+        $hours = $this->hours + ($this->days * $this->hoursPerDay) + ($this->weeks * $this->daysByWeek * $this->hoursPerDay);
 
         if ($this->seconds > 0) {
             if ($this->seconds < 10 && ($this->minutes > 0 || $hours > 0 || $zeroFill)) {
@@ -296,6 +326,9 @@ class Duration
         if ($this->days > 0) {
             $this->output = $this->days . 'd ' . $this->output;
         }
+        if ($this->weeks > 0) {
+            $this->output = $this->weeks . 'w ' . $this->output;
+        }
 
         return trim($this->output());
     }
@@ -334,6 +367,7 @@ class Duration
         $this->minutes = 0;
         $this->hours = 0;
         $this->days = 0;
+        $this->weeks = 0;
     }
 
     /**
